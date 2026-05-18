@@ -89,6 +89,49 @@ h1 {
   font-size: 13px;
 }
 
+.stats-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.stats-panel div {
+  min-width: 0;
+}
+
+.stats-panel span,
+.stats-panel strong {
+  display: block;
+  text-align: center;
+}
+
+.stats-panel span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stats-panel strong {
+  margin-top: 3px;
+  font-size: 14px;
+}
+
+.text-button {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .question-panel,
 .result-panel {
   border: 1px solid var(--line);

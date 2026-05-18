@@ -1,4 +1,4 @@
-const CACHE_NAME = "fe-a-pwa-v2";
+const CACHE_NAME = "fe-a-pwa-v3";
 const CACHE_FILES = [
   "./",
   "./index.html",

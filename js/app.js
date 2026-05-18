@@ -3,12 +3,16 @@ const state = {
   sessionQuestions: [],
   currentIndex: 0,
   score: 0,
-  answered: false
+  answered: false,
+  stats: createEmptyStats()
 };
 
 const elements = {
   progressText: document.querySelector("#progressText"),
   scoreText: document.querySelector("#scoreText"),
+  totalAnswersText: document.querySelector("#totalAnswersText"),
+  totalCorrectText: document.querySelector("#totalCorrectText"),
+  accuracyText: document.querySelector("#accuracyText"),
   categoryLabel: document.querySelector("#categoryLabel"),
   difficultyLabel: document.querySelector("#difficultyLabel"),
   questionText: document.querySelector("#questionText"),
@@ -18,10 +22,93 @@ const elements = {
   correctAnswerText: document.querySelector("#correctAnswerText"),
   explanationText: document.querySelector("#explanationText"),
   nextButton: document.querySelector("#nextButton"),
-  resetButton: document.querySelector("#resetButton")
+  resetButton: document.querySelector("#resetButton"),
+  resetStatsButton: document.querySelector("#resetStatsButton")
 };
 
 const choiceMarks = ["ア", "イ", "ウ", "エ"];
+const STORAGE_KEY = "feAQuizStats.v1";
+
+function createEmptyStats() {
+  return {
+    totalAnswers: 0,
+    totalCorrect: 0,
+    byQuestion: {}
+  };
+}
+
+function normalizeStats(rawStats) {
+  const stats = {
+    ...createEmptyStats(),
+    ...rawStats,
+    byQuestion: rawStats && typeof rawStats.byQuestion === "object" ? rawStats.byQuestion : {}
+  };
+
+  stats.totalAnswers = Number(stats.totalAnswers) || 0;
+  stats.totalCorrect = Number(stats.totalCorrect) || 0;
+  return stats;
+}
+
+function loadStats() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    state.stats = saved ? normalizeStats(JSON.parse(saved)) : createEmptyStats();
+  } catch (error) {
+    state.stats = createEmptyStats();
+  }
+  renderStats();
+}
+
+function saveStats() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.stats));
+  renderStats();
+}
+
+function renderStats() {
+  const totalAnswers = state.stats.totalAnswers;
+  const totalCorrect = state.stats.totalCorrect;
+  const accuracy = totalAnswers === 0 ? 0 : Math.round((totalCorrect / totalAnswers) * 100);
+
+  elements.totalAnswersText.textContent = `${totalAnswers}問`;
+  elements.totalCorrectText.textContent = `${totalCorrect}問`;
+  elements.accuracyText.textContent = `${accuracy}%`;
+}
+
+function recordAnswer(question, selectedChoice, isCorrect) {
+  const answeredAt = new Date().toISOString();
+  const questionStats = state.stats.byQuestion[question.id] || {
+    answerCount: 0,
+    correctCount: 0,
+    lastAnsweredAt: null,
+    history: []
+  };
+
+  questionStats.answerCount += 1;
+  questionStats.correctCount += isCorrect ? 1 : 0;
+  questionStats.lastAnsweredAt = answeredAt;
+  questionStats.history.push({
+    answeredAt,
+    selectedOriginalIndex: selectedChoice.originalIndex,
+    correctOriginalIndex: question.answerIndex,
+    isCorrect
+  });
+
+  state.stats.totalAnswers += 1;
+  state.stats.totalCorrect += isCorrect ? 1 : 0;
+  state.stats.byQuestion[question.id] = questionStats;
+  saveStats();
+}
+
+function resetSavedStats() {
+  const shouldReset = confirm("保存された成績をリセットしますか？");
+  if (!shouldReset) {
+    return;
+  }
+
+  state.stats = createEmptyStats();
+  localStorage.removeItem(STORAGE_KEY);
+  renderStats();
+}
 
 async function loadQuestions() {
   try {
@@ -117,6 +204,8 @@ function answerQuestion(selectedIndex) {
     state.score += 1;
   }
 
+  recordAnswer(question, selectedChoice, isCorrect);
+
   [...elements.choices.children].forEach((button) => {
     const buttonIndex = Number(button.dataset.index);
     const originalIndex = Number(button.dataset.originalIndex);
@@ -178,6 +267,9 @@ function resetQuiz() {
 
 elements.nextButton.addEventListener("click", goNext);
 elements.resetButton.addEventListener("click", resetQuiz);
+elements.resetStatsButton.addEventListener("click", resetSavedStats);
+
+loadStats();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

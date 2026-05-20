@@ -4,6 +4,7 @@ const state = {
   currentIndex: 0,
   score: 0,
   answered: false,
+  mode: "normal",
   stats: createEmptyStats()
 };
 
@@ -23,6 +24,7 @@ const elements = {
   explanationText: document.querySelector("#explanationText"),
   nextButton: document.querySelector("#nextButton"),
   resetButton: document.querySelector("#resetButton"),
+  reviewButton: document.querySelector("#reviewButton"),
   resetStatsButton: document.querySelector("#resetStatsButton")
 };
 
@@ -46,6 +48,20 @@ function normalizeStats(rawStats) {
 
   stats.totalAnswers = Number(stats.totalAnswers) || 0;
   stats.totalCorrect = Number(stats.totalCorrect) || 0;
+  Object.keys(stats.byQuestion).forEach((questionId) => {
+    const questionStats = stats.byQuestion[questionId] || {};
+    const history = Array.isArray(questionStats.history) ? questionStats.history : [];
+    const lastAnswer = history[history.length - 1];
+    stats.byQuestion[questionId] = {
+      answerCount: Number(questionStats.answerCount) || 0,
+      correctCount: Number(questionStats.correctCount) || 0,
+      lastAnsweredAt: questionStats.lastAnsweredAt || null,
+      history,
+      needsReview: typeof questionStats.needsReview === "boolean"
+        ? questionStats.needsReview
+        : Boolean(lastAnswer && !lastAnswer.isCorrect)
+    };
+  });
   return stats;
 }
 
@@ -72,6 +88,13 @@ function renderStats() {
   elements.totalAnswersText.textContent = `${totalAnswers}問`;
   elements.totalCorrectText.textContent = `${totalCorrect}問`;
   elements.accuracyText.textContent = `${accuracy}%`;
+  updateReviewButton();
+}
+
+function updateReviewButton() {
+  const reviewCount = getReviewQuestions().length;
+  elements.reviewButton.textContent = state.mode === "review" ? "通常モードへ" : `復習モード ${reviewCount}問`;
+  elements.reviewButton.disabled = state.mode !== "review" && reviewCount === 0;
 }
 
 function recordAnswer(question, selectedChoice, isCorrect) {
@@ -80,12 +103,14 @@ function recordAnswer(question, selectedChoice, isCorrect) {
     answerCount: 0,
     correctCount: 0,
     lastAnsweredAt: null,
-    history: []
+    history: [],
+    needsReview: false
   };
 
   questionStats.answerCount += 1;
   questionStats.correctCount += isCorrect ? 1 : 0;
   questionStats.lastAnsweredAt = answeredAt;
+  questionStats.needsReview = !isCorrect;
   questionStats.history.push({
     answeredAt,
     selectedOriginalIndex: selectedChoice.originalIndex,
@@ -108,6 +133,9 @@ function resetSavedStats() {
   state.stats = createEmptyStats();
   localStorage.removeItem(STORAGE_KEY);
   renderStats();
+  if (state.mode === "review") {
+    renderReviewComplete();
+  }
 }
 
 async function loadQuestions() {
@@ -119,13 +147,23 @@ async function loadQuestions() {
 
     const data = await response.json();
     state.sourceQuestions = data.questions;
-    startSession();
+    startNormalSession();
   } catch (error) {
     elements.categoryLabel.textContent = "読み込み失敗";
     elements.difficultyLabel.textContent = "-";
     elements.questionText.textContent = "問題データを読み込めませんでした。サーバー上で開いているか確認してください。";
     elements.choices.innerHTML = "";
   }
+}
+
+function getReviewQuestions() {
+  if (state.sourceQuestions.length === 0) {
+    return [];
+  }
+
+  return state.sourceQuestions.filter((question) => {
+    return Boolean(state.stats.byQuestion[question.id] && state.stats.byQuestion[question.id].needsReview);
+  });
 }
 
 function shuffleArray(items) {
@@ -151,12 +189,34 @@ function createSessionQuestion(question) {
   };
 }
 
-function startSession() {
-  state.sessionQuestions = shuffleArray(state.sourceQuestions).map(createSessionQuestion);
+function startNormalSession() {
+  state.mode = "normal";
+  startSession(state.sourceQuestions);
+}
+
+function startReviewSession() {
+  state.mode = "review";
+  const reviewQuestions = getReviewQuestions();
+  if (reviewQuestions.length === 0) {
+    state.sessionQuestions = [];
+    state.currentIndex = 0;
+    state.score = 0;
+    state.answered = false;
+    renderReviewComplete();
+    updateReviewButton();
+    return;
+  }
+
+  startSession(reviewQuestions);
+}
+
+function startSession(questions) {
+  state.sessionQuestions = shuffleArray(questions).map(createSessionQuestion);
   state.currentIndex = 0;
   state.score = 0;
   state.answered = false;
   renderQuestion();
+  updateReviewButton();
 }
 
 function renderQuestion() {
@@ -167,6 +227,10 @@ function renderQuestion() {
   elements.scoreText.textContent = `${state.score}問正解`;
   elements.categoryLabel.textContent = question.category;
   elements.difficultyLabel.textContent = question.difficulty;
+  if (state.mode === "review") {
+    elements.categoryLabel.textContent = "復習モード";
+    elements.difficultyLabel.textContent = question.category;
+  }
   elements.questionText.textContent = question.question;
   elements.resultPanel.classList.add("hidden");
   elements.nextButton.disabled = true;
@@ -231,6 +295,12 @@ function goNext() {
     return;
   }
 
+  if (state.mode === "review" && getReviewQuestions().length === 0) {
+    renderReviewComplete();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
   if (state.currentIndex < state.sessionQuestions.length - 1) {
     state.currentIndex += 1;
     renderQuestion();
@@ -244,29 +314,68 @@ function goNext() {
 function renderResult() {
   const total = state.sessionQuestions.length;
   const percent = Math.round((state.score / total) * 100);
+  const reviewLeft = getReviewQuestions().length;
   elements.progressText.textContent = `${total} / ${total}`;
-  elements.categoryLabel.textContent = "全問終了";
+  elements.categoryLabel.textContent = state.mode === "review" && reviewLeft === 0 ? "復習完了" : "全問終了";
   elements.difficultyLabel.textContent = `${percent}%`;
-  elements.questionText.textContent = `全問終了。${total}問中 ${state.score}問正解でした。`;
+  elements.questionText.textContent = state.mode === "review"
+    ? `復習終了。${total}問中 ${state.score}問正解、残りの復習対象は${reviewLeft}問です。`
+    : `全問終了。${total}問中 ${state.score}問正解でした。`;
   elements.choices.innerHTML = "";
   elements.resultPanel.classList.remove("hidden");
-  elements.resultBadge.textContent = percent >= 80 ? "良好" : "復習";
-  elements.resultBadge.className = `result-badge ${percent >= 80 ? "ok" : "ng"}`;
+  const isReviewComplete = state.mode === "review" && reviewLeft === 0;
+  elements.resultBadge.textContent = isReviewComplete ? "復習完了" : percent >= 80 ? "良好" : "復習";
+  elements.resultBadge.className = `result-badge ${isReviewComplete || percent >= 80 ? "ok" : "ng"}`;
   elements.correctAnswerText.textContent = "もう一度解く場合は「最初から」を押してください。";
   elements.explanationText.textContent = "問題を追加するときは data/questions.json の questions 配列に同じ形式で追加できます。";
   elements.nextButton.disabled = true;
   elements.nextButton.textContent = "完了";
+  updateReviewButton();
+}
+
+function renderReviewComplete() {
+  state.mode = "review";
+  state.sessionQuestions = [];
+  state.answered = false;
+  elements.progressText.textContent = "0 / 0";
+  elements.scoreText.textContent = `${state.score}問正解`;
+  elements.categoryLabel.textContent = "復習完了";
+  elements.difficultyLabel.textContent = "0問";
+  elements.questionText.textContent = "復習対象の問題はありません。";
+  elements.choices.innerHTML = "";
+  elements.resultPanel.classList.remove("hidden");
+  elements.resultBadge.textContent = "復習完了";
+  elements.resultBadge.className = "result-badge ok";
+  elements.correctAnswerText.textContent = "間違えた問題を正解すると、復習リストから外れます。";
+  elements.explanationText.textContent = "通常の出題で不正解になると、この復習モードに追加されます。";
+  elements.nextButton.disabled = true;
+  elements.nextButton.textContent = "完了";
+  updateReviewButton();
 }
 
 function resetQuiz() {
   if (state.sourceQuestions.length > 0) {
-    startSession();
+    if (state.mode === "review") {
+      startReviewSession();
+    } else {
+      startNormalSession();
+    }
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function toggleReviewMode() {
+  if (state.mode === "review") {
+    startNormalSession();
+  } else {
+    startReviewSession();
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 elements.nextButton.addEventListener("click", goNext);
 elements.resetButton.addEventListener("click", resetQuiz);
+elements.reviewButton.addEventListener("click", toggleReviewMode);
 elements.resetStatsButton.addEventListener("click", resetSavedStats);
 
 loadStats();

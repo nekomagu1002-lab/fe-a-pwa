@@ -122,7 +122,6 @@ h1 {
 }
 
 .text-button {
-  grid-column: 1 / -1;
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -130,6 +129,14 @@ h1 {
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
+}
+
+#reviewButton {
+  grid-column: 1 / 3;
+}
+
+#resetStatsButton {
+  grid-column: 3 / 4;
 }
 
 .question-panel,
@@ -332,5 +339,10 @@ h1 {
     grid-template-columns: 96px 1fr;
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  #reviewButton,
+  #resetStatsButton {
+    grid-column: 1 / -1;
   }
 }

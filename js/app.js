@@ -1,3 +1,5 @@
+const APP_VERSION = "v0.7.0";
+
 const state = {
   sourceQuestions: [],
   sessionQuestions: [],
@@ -5,6 +7,7 @@ const state = {
   score: 0,
   answered: false,
   mode: "normal",
+  selectedCategory: "",
   stats: createEmptyStats()
 };
 
@@ -24,8 +27,25 @@ const elements = {
   explanationText: document.querySelector("#explanationText"),
   nextButton: document.querySelector("#nextButton"),
   resetButton: document.querySelector("#resetButton"),
-  reviewButton: document.querySelector("#reviewButton"),
-  resetStatsButton: document.querySelector("#resetStatsButton")
+  menuButton: document.querySelector("#menuButton"),
+  menuOverlay: document.querySelector("#menuOverlay"),
+  menuBackdrop: document.querySelector("#menuBackdrop"),
+  closeMenuButton: document.querySelector("#closeMenuButton"),
+  normalModeButton: document.querySelector("#normalModeButton"),
+  reviewModeButton: document.querySelector("#reviewModeButton"),
+  showStatsButton: document.querySelector("#showStatsButton"),
+  showHelpButton: document.querySelector("#showHelpButton"),
+  resetStatsButton: document.querySelector("#resetStatsButton"),
+  categorySelect: document.querySelector("#categorySelect"),
+  categoryStartButton: document.querySelector("#categoryStartButton"),
+  menuStatsPanel: document.querySelector("#menuStatsPanel"),
+  helpPanel: document.querySelector("#helpPanel"),
+  sheetTotalAnswersText: document.querySelector("#sheetTotalAnswersText"),
+  sheetTotalCorrectText: document.querySelector("#sheetTotalCorrectText"),
+  sheetAccuracyText: document.querySelector("#sheetAccuracyText"),
+  sheetReviewCountText: document.querySelector("#sheetReviewCountText"),
+  appVersionText: document.querySelector("#appVersionText"),
+  questionCountText: document.querySelector("#questionCountText")
 };
 
 const choiceMarks = ["ア", "イ", "ウ", "エ"];
@@ -84,17 +104,24 @@ function renderStats() {
   const totalAnswers = state.stats.totalAnswers;
   const totalCorrect = state.stats.totalCorrect;
   const accuracy = totalAnswers === 0 ? 0 : Math.round((totalCorrect / totalAnswers) * 100);
+  const reviewCount = getReviewQuestions().length;
 
   elements.totalAnswersText.textContent = `${totalAnswers}問`;
   elements.totalCorrectText.textContent = `${totalCorrect}問`;
   elements.accuracyText.textContent = `${accuracy}%`;
-  updateReviewButton();
+  elements.sheetTotalAnswersText.textContent = `${totalAnswers}問`;
+  elements.sheetTotalCorrectText.textContent = `${totalCorrect}問`;
+  elements.sheetAccuracyText.textContent = `${accuracy}%`;
+  elements.sheetReviewCountText.textContent = `${reviewCount}問`;
+  updateMenuLabels();
 }
 
-function updateReviewButton() {
+function updateMenuLabels() {
   const reviewCount = getReviewQuestions().length;
-  elements.reviewButton.textContent = state.mode === "review" ? "通常モードへ" : `復習モード ${reviewCount}問`;
-  elements.reviewButton.disabled = state.mode !== "review" && reviewCount === 0;
+  elements.reviewModeButton.textContent = state.mode === "review" ? "通常モードへ" : `復習モード ${reviewCount}問`;
+  elements.reviewModeButton.disabled = state.mode !== "review" && reviewCount === 0;
+  elements.appVersionText.textContent = APP_VERSION;
+  elements.questionCountText.textContent = `${state.sourceQuestions.length}問`;
 }
 
 function recordAnswer(question, selectedChoice, isCorrect) {
@@ -138,6 +165,35 @@ function resetSavedStats() {
   }
 }
 
+function openMenu(targetPanel = "") {
+  elements.menuOverlay.classList.remove("hidden");
+  elements.menuOverlay.setAttribute("aria-hidden", "false");
+  elements.menuButton.setAttribute("aria-expanded", "true");
+  if (targetPanel === "stats") {
+    showStatsPanel();
+  } else if (targetPanel === "help") {
+    showHelpPanel();
+  }
+}
+
+function closeMenu() {
+  elements.menuOverlay.classList.add("hidden");
+  elements.menuOverlay.setAttribute("aria-hidden", "true");
+  elements.menuButton.setAttribute("aria-expanded", "false");
+}
+
+function showStatsPanel() {
+  elements.menuStatsPanel.classList.remove("hidden");
+  elements.helpPanel.classList.add("hidden");
+  renderStats();
+}
+
+function showHelpPanel() {
+  elements.helpPanel.classList.remove("hidden");
+  elements.menuStatsPanel.classList.add("hidden");
+  updateMenuLabels();
+}
+
 async function loadQuestions() {
   try {
     const response = await fetch("data/questions.json", { cache: "no-store" });
@@ -147,6 +203,7 @@ async function loadQuestions() {
 
     const data = await response.json();
     state.sourceQuestions = data.questions;
+    renderCategoryOptions();
     startNormalSession();
   } catch (error) {
     elements.categoryLabel.textContent = "読み込み失敗";
@@ -163,6 +220,24 @@ function getReviewQuestions() {
 
   return state.sourceQuestions.filter((question) => {
     return Boolean(state.stats.byQuestion[question.id] && state.stats.byQuestion[question.id].needsReview);
+  });
+}
+
+function renderCategoryOptions() {
+  const categories = [...new Set(state.sourceQuestions.map((question) => question.category))].sort((a, b) => a.localeCompare(b, "ja"));
+  elements.categorySelect.innerHTML = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "全カテゴリ";
+  elements.categorySelect.appendChild(allOption);
+
+  categories.forEach((category) => {
+    const count = state.sourceQuestions.filter((question) => question.category === category).length;
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = `${category}（${count}問）`;
+    elements.categorySelect.appendChild(option);
   });
 }
 
@@ -191,7 +266,18 @@ function createSessionQuestion(question) {
 
 function startNormalSession() {
   state.mode = "normal";
+  state.selectedCategory = "";
   startSession(state.sourceQuestions);
+}
+
+function startCategorySession(category) {
+  const questions = category
+    ? state.sourceQuestions.filter((question) => question.category === category)
+    : state.sourceQuestions;
+
+  state.mode = category ? "category" : "normal";
+  state.selectedCategory = category;
+  startSession(questions);
 }
 
 function startReviewSession() {
@@ -203,7 +289,7 @@ function startReviewSession() {
     state.score = 0;
     state.answered = false;
     renderReviewComplete();
-    updateReviewButton();
+    updateMenuLabels();
     return;
   }
 
@@ -216,7 +302,7 @@ function startSession(questions) {
   state.score = 0;
   state.answered = false;
   renderQuestion();
-  updateReviewButton();
+  updateMenuLabels();
 }
 
 function renderQuestion() {
@@ -230,6 +316,9 @@ function renderQuestion() {
   if (state.mode === "review") {
     elements.categoryLabel.textContent = "復習モード";
     elements.difficultyLabel.textContent = question.category;
+  } else if (state.mode === "category") {
+    elements.categoryLabel.textContent = "カテゴリ出題";
+    elements.difficultyLabel.textContent = state.selectedCategory;
   }
   elements.questionText.textContent = question.question;
   elements.resultPanel.classList.add("hidden");
@@ -330,7 +419,7 @@ function renderResult() {
   elements.explanationText.textContent = "問題を追加するときは data/questions.json の questions 配列に同じ形式で追加できます。";
   elements.nextButton.disabled = true;
   elements.nextButton.textContent = "完了";
-  updateReviewButton();
+  updateMenuLabels();
 }
 
 function renderReviewComplete() {
@@ -350,13 +439,15 @@ function renderReviewComplete() {
   elements.explanationText.textContent = "通常の出題で不正解になると、この復習モードに追加されます。";
   elements.nextButton.disabled = true;
   elements.nextButton.textContent = "完了";
-  updateReviewButton();
+  updateMenuLabels();
 }
 
 function resetQuiz() {
   if (state.sourceQuestions.length > 0) {
     if (state.mode === "review") {
       startReviewSession();
+    } else if (state.mode === "category") {
+      startCategorySession(state.selectedCategory);
     } else {
       startNormalSession();
     }
@@ -373,10 +464,36 @@ function toggleReviewMode() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function startSelectedCategory() {
+  startCategorySession(elements.categorySelect.value);
+  closeMenu();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 elements.nextButton.addEventListener("click", goNext);
 elements.resetButton.addEventListener("click", resetQuiz);
-elements.reviewButton.addEventListener("click", toggleReviewMode);
+elements.menuButton.addEventListener("click", () => openMenu());
+elements.closeMenuButton.addEventListener("click", closeMenu);
+elements.menuBackdrop.addEventListener("click", closeMenu);
+elements.normalModeButton.addEventListener("click", () => {
+  startNormalSession();
+  closeMenu();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+elements.reviewModeButton.addEventListener("click", () => {
+  toggleReviewMode();
+  closeMenu();
+});
+elements.showStatsButton.addEventListener("click", showStatsPanel);
+elements.showHelpButton.addEventListener("click", showHelpPanel);
+elements.categoryStartButton.addEventListener("click", startSelectedCategory);
 elements.resetStatsButton.addEventListener("click", resetSavedStats);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !elements.menuOverlay.classList.contains("hidden")) {
+    closeMenu();
+  }
+});
 
 loadStats();
 

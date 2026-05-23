@@ -21,9 +21,16 @@
           <p class="eyebrow">基本情報技術者試験</p>
           <h1>科目A 4択トレーニング</h1>
         </div>
-        <div class="score-card" aria-label="学習状況">
-          <span id="progressText">0 / 0</span>
-          <strong id="scoreText">0問正解</strong>
+        <div class="top-actions">
+          <div class="score-card" aria-label="学習状況">
+            <span id="progressText">0 / 0</span>
+            <strong id="scoreText">0問正解</strong>
+          </div>
+          <button id="menuButton" class="icon-button" type="button" aria-label="機能メニューを開く" aria-controls="menuOverlay" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
         </div>
       </header>
 
@@ -40,8 +47,6 @@
           <span>正答率</span>
           <strong id="accuracyText">0%</strong>
         </div>
-        <button id="reviewButton" class="text-button" type="button">復習モード</button>
-        <button id="resetStatsButton" class="text-button" type="button">成績をリセット</button>
       </section>
 
       <section class="question-panel">
@@ -66,6 +71,70 @@
         <button id="resetButton" class="secondary-button" type="button">最初から</button>
         <button id="nextButton" class="primary-button" type="button" disabled>次の問題へ</button>
       </footer>
+
+      <div id="menuOverlay" class="menu-overlay hidden" aria-hidden="true">
+        <button id="menuBackdrop" class="menu-backdrop" type="button" aria-label="メニューを閉じる"></button>
+        <section class="menu-sheet" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+          <div class="menu-handle" aria-hidden="true"></div>
+          <div class="menu-header">
+            <div>
+              <p class="eyebrow">機能</p>
+              <h2 id="menuTitle">メニュー</h2>
+            </div>
+            <button id="closeMenuButton" class="sheet-close-button" type="button" aria-label="メニューを閉じる">閉じる</button>
+          </div>
+
+          <div class="menu-grid">
+            <button id="normalModeButton" class="menu-item" type="button">通常出題</button>
+            <button id="reviewModeButton" class="menu-item" type="button">復習モード</button>
+            <button id="showStatsButton" class="menu-item" type="button">成績を見る</button>
+            <button id="showHelpButton" class="menu-item" type="button">ヘルプ / バージョン情報</button>
+            <button id="resetStatsButton" class="menu-item danger" type="button">成績をリセット</button>
+          </div>
+
+          <div class="category-menu">
+            <label for="categorySelect">カテゴリ別出題</label>
+            <div class="category-row">
+              <select id="categorySelect"></select>
+              <button id="categoryStartButton" class="menu-item compact" type="button">開始</button>
+            </div>
+          </div>
+
+          <section id="menuStatsPanel" class="sheet-info hidden">
+            <h3>成績</h3>
+            <dl>
+              <div><dt>総回答数</dt><dd id="sheetTotalAnswersText">0問</dd></div>
+              <div><dt>正解数</dt><dd id="sheetTotalCorrectText">0問</dd></div>
+              <div><dt>正答率</dt><dd id="sheetAccuracyText">0%</dd></div>
+              <div><dt>復習対象</dt><dd id="sheetReviewCountText">0問</dd></div>
+            </dl>
+          </section>
+
+          <section id="helpPanel" class="sheet-info hidden">
+            <h3>ヘルプ / バージョン情報</h3>
+            <dl>
+              <div><dt>アプリ名</dt><dd>FE科目A 4択トレーニング</dd></div>
+              <div><dt>バージョン</dt><dd id="appVersionText">v0.7.0</dd></div>
+              <div><dt>問題数</dt><dd id="questionCountText">0問</dd></div>
+            </dl>
+            <h4>実装済み機能</h4>
+            <ul>
+              <li>ランダム出題</li>
+              <li>選択肢シャッフル</li>
+              <li>localStorageによる成績保存</li>
+              <li>間違えた問題だけ復習</li>
+              <li>カテゴリ別出題</li>
+              <li>PWA / ホーム画面追加対応</li>
+            </ul>
+            <h4>今後追加予定</h4>
+            <ul>
+              <li>ダークモード</li>
+              <li>問題品質改善の継続</li>
+              <li>苦手カテゴリの分析表示</li>
+            </ul>
+          </section>
+        </section>
+      </div>
     </main>
 
     <script src="js/app.js" defer></script>

@@ -1,5 +1,14 @@
 # FE科目A 4択トレーニング PWA
 
+<!-- repository-role:start -->
+> 公開配信用リポジトリです。今後の開発は [study-lab/projects/fe-a-pwa/](https://github.com/nekomagu1002-lab/study-lab/tree/main/projects/fe-a-pwa)（非公開・アクセス権が必要）で行います。
+>
+> [アプリを開く](https://nekomagu1002-lab.github.io/fe-a-pwa/) · [公開中のソース](https://github.com/nekomagu1002-lab/fe-a-pwa/tree/main)
+>
+> 開発先と公開版は自動同期していません。このリポジトリは既存URLの配信のために残しています。以下は公開版の従来の説明です。開発先にだけ含まれる修正があるため、最新版と一致するとは限りません。
+<!-- repository-role:end -->
+
+
 基本情報技術者試験（FE）科目A向けの、スマホで使う軽量な4択学習PWAです。
 
 ## ファイル構成
